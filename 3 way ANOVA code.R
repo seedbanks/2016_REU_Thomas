@@ -1,50 +1,68 @@
 ##########################################################
 # 3 way ANOVA 
 # Growth Chamber Experiment 
-# data from: Documents< IU Biodiversity< GCH_CO2.csv
+# data from: GCH_CO2.csv
 #########################################################
-setwd("~/Documents/IU BioDiversity")
-#clear environment
 rm(list=ls())
+require(reshape)
 
 CO2<-read.csv("GCH_CO2.csv", header=T)
 summary(CO2)
 
-#make variables factors
-rpf=factor(CO2$rpf)
-rpf<-factor(rpf, labels=c("rpf+", "rpf-"))
-> is.factor(rpf)
-[1] TRUE
-> levels(rpf)
-[1] "rpf+" "rpf-"
+CO2.m <- melt(CO2, id = c("Sample.ID", "rpf", "soil", "plants", "Hour"))
 
-soil=factor(CO2$soil)
-soil<-factor(soil, labels=c("sterile", "live"))
-soil
-is.factor(soil)
-levels(soil)
+CO2.l <- as.data.frame(CO2.m)
+colnames(CO2.l) <- c("ID", "rpf", "soil", "plant", "time", "week", "resp")
+CO2.l$week <- as.numeric(gsub("Week.", "", CO2.l$week))
 
-plant=factor(CO2$plant)
-plant<-factor(plant, labels=c("plant", "without plant"))
-plant
-is.factor(plant)
-levels(plant)
+CO2.l$rpf <- as.factor(CO2.l$rpf)
+CO2.l$soil <- as.factor(CO2.l$soil)
+CO2.l$plant <- as.factor(CO2.l$plant)
 
-#While I couldn't do an ANOVA for all weeks yet, I wanted to at least look at them individually
-#ran 3-way ANOVA for each week seperately
+#repeated measures ANOVA
+ctrl <- lmeControl(opt="optim")
+rmANOVA <-lme(resp ~ (rpf * week) + plant, random = ~ 1|ID, 
+              + data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 1)], control=ctrl)
+rmANOVA
+summary(rmANOVA)
 
-week.1aov<- aov(week.1~rpf*soil*plant, data=CO2)
-summary(week.1aov)
-#week.1 shows only soil and soil:plant interaction are significant (<0.05)
-week.2aov<- aov(week.2~rpf*soil*plant, data=CO2)
-> summary(week.2aov)
-#week.2 shows only soil as significant
-week.3aov<- aov(week.3~rpf*soil*plant, data=CO2)
-> summary(week.3aov)
-#soil and plant are significant
-week.4aov<- aov(week.4~rpf*soil*plant, data=CO2)
-> summary(week.4aov)
-# rpf:soil:plant interactions are significant
-week.5aov<- aov(week.5~rpf*soil*plant, data=CO2)
-> summary(week.5aov)
-#plant is significant
+#effects of rpf on respiration per week
+#rpf1= rpf+, rpf2=rpf - (control)
+plot(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$rpf == 1), ], pch = 22, bg = "red")
+points(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$rpf == 2), ], pch = 21, bg = "gray")
+
+#effects of soil on respiration per week
+# 1-sterile soil 2- live soil
+plot(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 1), ], pch = 22, bg = "red")
+points(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 2), ], pch = 21, bg = "gray")
+
+#effects of plants/no plants on respiration per week
+#1-plants 2-no plants
+plot(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$plant == 1), ], pch = 22, bg = "red")
+points(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$plant == 2), ], pch = 21, bg = "gray")
+#rpf with soil 
+plot(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 1 & 
+                                               CO2.l$rpf == 1), ], pch = 22, bg = "red")
+points(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 1 & 
+                                          CO2.l$rpf == 2), ], pch = 21, bg = "gray")
+
+#Rpf has an effect on sterile soil during the first week of the experiment
+par(mar = c(5, 6, 3, 1))
+# Start Plot
+plot(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 1 & 
+                                               CO2.l$rpf == 1), ], pch = 22, bg = "red",
+     xlab = "", ylab = "", ylim = c(0, 1e5), yaxt = "n", las = 1)
+# Add Second Points
+points(resp ~ jitter(week), data = CO2.l[which(CO2.l$time == 48 & CO2.l$soil == 1 & 
+                                                 CO2.l$rpf == 2), ], pch = 21, bg = "gray")
+mtext("Effects of Rpf with Sterile Soil", side = 3, cex = 1.5, line = 1)
+mtext(expression(paste("CO"[2], " Respiration")), side = 2, line = 4, cex = 1.5)
+mtext("Week", side = 1, line = 3, cex = 1.5)
+legend("topright", c("rpf+", "rpf-"), pch = c(22, 21), pt.bg = c("red", "gray"), bty = "n")
+
+ axis(2, at = c(0, 20000, 40000, 60000, 80000, 100000), 
+      labels = c(0,expression("2" %*% "10"^4),
+                 expression("4"%*% "10"^4),expression("6"%*% "10"^4),
+                 expression("8"%*% "10"^4),expression("1" %*% "10"^5)),
+      las = 1)
+ box(lwd = 2)
